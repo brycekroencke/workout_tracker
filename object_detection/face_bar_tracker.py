@@ -40,18 +40,19 @@ while True:
     if args.get("video") and not grabbed:
         break
 
-    #face track
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = faceCascade.detectMultiScale(
-        gray,
-        scaleFactor=1.1,
-        minNeighbors=5,
-        minSize=(30, 30),
-        flags=cv2.CASCADE_SCALE_IMAGE
-    )
-    # Draw a rectangle around the faces
-    for (x, y, w, h) in faces:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+    # #face track
+    # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # faces = faceCascade.detectMultiScale(
+    #     gray,
+    #     scaleFactor=1.1,
+    #     minNeighbors=5,
+    #     minSize=(30, 30),
+    #     flags=cv2.CASCADE_SCALE_IMAGE
+    # )
+    # # Draw a rectangle around the faces
+    # for (x, y, w, h) in faces:
+    #     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+    #     print((x+(w/2.0)), (y+(h/2.0)))
 
     #barbell movement track
 	# resize the frame, inverted ("vertical flip" w/ 180degrees),
@@ -95,13 +96,25 @@ while True:
 	# update the points queue
     pts.appendleft(center)
 
-    	# loop over the set of tracked points
+    current_movement = ""
+
+    # loop over the set of tracked points
     for i in range(1, len(pts)):
         # if either of the tracked points are None, ignore
         # them
         if pts[i - 1] is None or pts[i] is None:
         	continue
 
+        elif pts[i][1] > pts[i-1][1]:
+            current_movement = "UP"
+
+        elif pts[i][1] < pts[i-1][1]:
+            current_movement = "DOWN"
+
+        elif pts[i][1] == pts[i-1][1]:
+            current_movement = "STILL"
+
+        print(current_movement)
         # otherwise, compute the thickness of the line and
         # draw the connecting lines
         thickness = int(np.sqrt(args["buffer"] / float(i + 1)) * 2.5)
