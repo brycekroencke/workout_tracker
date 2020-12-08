@@ -7,7 +7,9 @@ from operator import itemgetter
 import json
 import cv2
 from datetime import date
-
+from tensorflow.keras.models import load_model
+from collections import deque
+import pickle
 
 def local_min(ys):
     return [y[1] for i, y in enumerate(ys)
@@ -72,7 +74,29 @@ ap.add_argument("-v", "--video",
 	help="path to the (optional) video file")
 ap.add_argument("-b", "--buffer", type=int, default=60,
 	help="max buffer size")
+
+
+ap.add_argument("-m", "--model", required=True,
+	help="path to trained serialized model")
+ap.add_argument("-l", "--label-bin", required=True,
+	help="path to  label binarizer")
+ap.add_argument("-s", "--size", type=int, default=128,
+	help="size of queue for averaging")
 args = vars(ap.parse_args())
+
+
+
+
+# load the trained model and label binarizer from disk
+print("[INFO] loading model and label binarizer...")
+model = load_model(args["model"])
+lb = pickle.loads(open(args["label_bin"], "rb").read())
+# initialize the image mean for mean subtraction along with the
+# predictions queue
+mean = np.array([123.68, 116.779, 103.939][::1], dtype="float32")
+Q = deque(maxlen=args["size"])
+
+
 
 all_ys = []
 sets = 0
@@ -165,7 +189,21 @@ while True:
             wait_for_movement = True
     else:
         #Object is moving only predict when obj is moving
-        
+        output = frame.copy()
+    	frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    	frame = cv2.resize(frame, (224, 224)).astype("float32")
+    	frame -= mean
+
+    	# make predictions on the frame and then update the predictions
+    	# queue
+    	preds = model.predict(np.expand_dims(frame, axis=0))[0]
+    	Q.append(preds)
+    	results = np.array(Q).mean(axis=0)
+    	i = np.argmax(results)
+    	label = lb.classes_[i]
+
+        print(label)
+
         wait_for_movement = False
 
 
