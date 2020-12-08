@@ -1,6 +1,8 @@
 # Workout Tracker Notes
 
 ## Movement Classifier
+- should be easiest to classify movement type at peak of a rep
+- include option to record warmup reps (if no warmups only mark reps at peak weight)
 
 ## Bar Tracking
 
@@ -8,6 +10,7 @@
 - process frames of webcam / vid source
 - track user face
 - track bar movement and trace line
+- simple rep and set counter
 
 ###### Future
 - find reliable tracking point
