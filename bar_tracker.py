@@ -128,22 +128,22 @@ while True:
         break
 
     # barbell movement track
-	# resize the frame, inverted ("vertical flip" w/ 180degrees),
-	# blur it, and convert it to the HSV color space
+    # resize the frame, inverted ("vertical flip" w/ 180degrees),
+    # blur it, and convert it to the HSV color space
     frame = imutils.resize(frame, width=600)
-	#frame = imutils.rotate(frame, angle=180)
-	# blurred = cv2.GaussianBlur(frame, (11, 11), 0)
+    #frame = imutils.rotate(frame, angle=180)
+    # blurred = cv2.GaussianBlur(frame, (11, 11), 0)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-	# construct a mask for the color "green", then perform
-	# a series of dilations and erosions to remove any small
-	# blobs left in the mask
+    # construct a mask for the color "green", then perform
+    # a series of dilations and erosions to remove any small
+    # blobs left in the mask
     mask = cv2.inRange(hsv, colorLower, colorUpper)
     mask = cv2.erode(mask, None, iterations=2)
     mask = cv2.dilate(mask, None, iterations=2)
 
-	# find contours in the mask and initialize the current
-	# (x, y) center of the barbell
+    # find contours in the mask and initialize the current
+    # (x, y) center of the barbell
     cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
         cv2.CHAIN_APPROX_SIMPLE)[-2]
     center = None
@@ -190,17 +190,17 @@ while True:
     else:
         #Object is moving only predict when obj is moving
         output = frame.copy()
-    	frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    	frame = cv2.resize(frame, (224, 224)).astype("float32")
-    	frame -= mean
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.resize(frame, (224, 224)).astype("float32")
+        frame -= mean
 
-    	# make predictions on the frame and then update the predictions
-    	# queue
-    	preds = model.predict(np.expand_dims(frame, axis=0))[0]
-    	Q.append(preds)
-    	results = np.array(Q).mean(axis=0)
-    	i = np.argmax(results)
-    	label = lb.classes_[i]
+        # make predictions on the frame and then update the predictions
+        # queue
+        preds = model.predict(np.expand_dims(frame, axis=0))[0]
+        Q.append(preds)
+        results = np.array(Q).mean(axis=0)
+        i = np.argmax(results)
+        label = lb.classes_[i]
 
         print(label)
 
