@@ -15,3 +15,6 @@
 ###### Future
 - find reliable tracking point
 - detect start and end of movement
+
+
+## add feature to update a discord channel

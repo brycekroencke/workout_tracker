@@ -49,7 +49,6 @@ data = []
 labels = []
 # loop over the image paths
 for imagePath in imagePaths:
-    print(imagePath)
 	# extract the class label from the filename
     label = imagePath.split(os.path.sep)[-2]
 	# if the label of the current image is not part of of the labels

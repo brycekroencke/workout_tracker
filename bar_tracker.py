@@ -11,6 +11,7 @@ import json
 import time
 import cv2
 
+from collections import Counter
 import logging
 
 from tf_pose.estimator import TfPoseEstimator
@@ -146,6 +147,7 @@ all_ys = []
 output_list = []
 sets = 0
 label = ""
+labels = []
 wait_for_movement = False
 
 # define the lower and upper boundaries of the tracked obj color
@@ -231,6 +233,8 @@ while True:
             if reps != 0:
                 print("%s   set: %d reps: %d" % (label, sets, reps))
                 output_list.append([label, sets, reps])
+                print(Counter(labels))
+            labels = []
             all_ys = []
             wait_for_movement = True
     else:
@@ -252,7 +256,7 @@ while True:
         results = np.array(Q).mean(axis=0)
         i = np.argmax(results)
         label = lb.classes_[i]
-
+        labels.append(label)
         wait_for_movement = False
 
 
