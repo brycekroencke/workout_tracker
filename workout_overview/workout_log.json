@@ -1,12 +1,21 @@
 {
     "09/12/2020": {
         "day": 2,
-        "lifts": {
-            "squats": {
-                "reps": 0,
-                "sets": 0,
-                "weight": 200
+        "lifts": [
+            {
+                "ohp": {
+                    "reps": 2,
+                    "sets": 1,
+                    "weight": 200
+                }
+            },
+            {
+                "deadlift": {
+                    "reps": 1,
+                    "sets": 2,
+                    "weight": 200
+                }
             }
-        }
+        ]
     }
 }

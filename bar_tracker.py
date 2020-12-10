@@ -12,10 +12,7 @@ import time
 import cv2
 
 from collections import Counter
-import logging
-
-from tf_pose.estimator import TfPoseEstimator
-from tf_pose.networks import get_graph_path, model_wh
+# import logging
 
 
 """Return all local y mins in list of points"""
@@ -86,8 +83,6 @@ def is_still(arr, stillness_threshold = 5):
 
 
 
-
-
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
 
@@ -112,22 +107,41 @@ ap.add_argument('--resize-out-ratio', type=float, default=4.0,
                     help='if provided, resize heatmaps before they are post-processed. default=1.0')
 args = vars(ap.parse_args())
 
-
-logger = logging.getLogger('TfPoseEstimator-WebCam')
-logger.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+# logger = logging.getLogger('TfPoseEstimator-WebCam')
+# logger.setLevel(logging.DEBUG)
+# ch = logging.StreamHandler()
+# ch.setLevel(logging.DEBUG)
+# formatter = logging.Formatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
+# ch.setFormatter(formatter)
+# logger.addHandler(ch)
 fps_time = 0
+today = date.today()
+d1 = today.strftime("%d/%m/%Y")
+data = {}
+with open("workout_overview/workout_log.json") as f:
+    one_char = f.read(1)
+    # if not fetched then file is empty
+    if one_char:
+        data = json.load(f)
 
-logger.debug('initialization %s : %s' % (args["model2"], get_graph_path(args["model2"])))
-w, h = model_wh(args["resize"])
-if w > 0 and h > 0:
-    e = TfPoseEstimator(get_graph_path(args["model2"]), target_size=(w, h), trt_bool=str2bool(args["tensorrt"]))
+#data[d1] = {}
+
+if d1 not in data.keys():
+    print("ADDING DATE TO FILE")
+    lift_data = []
+    data[d1] ={
+        'day': today.weekday(),
+        'lifts': lift_data
+    }
 else:
-    e = TfPoseEstimator(get_graph_path(args["model2"]), target_size=(432, 368), trt_bool=str2bool(args["tensorrt"]))
+    print("APPENDING TO DATE")
+#
+# logger.debug('initialization %s : %s' % (args["model2"], get_graph_path(args["model2"])))
+# w, h = model_wh(args["resize"])
+# if w > 0 and h > 0:
+#     e = TfPoseEstimator(get_graph_path(args["model2"]), target_size=(w, h), trt_bool=str2bool(args["tensorrt"]))
+# else:
+#     e = TfPoseEstimator(get_graph_path(args["model2"]), target_size=(432, 368), trt_bool=str2bool(args["tensorrt"]))
 # logger.debug('cam read+')
 # cam = cv2.VideoCapture(args.camera)
 # ret_val, image = cam.read()
@@ -151,9 +165,12 @@ labels = []
 wait_for_movement = False
 
 # define the lower and upper boundaries of the tracked obj color
-#yellow highlighter
+# yellow highlighter
 # colorLower = (24, 100, 100)
 # colorUpper = (44, 255, 255)
+
+colorLower = (20, 100, 125)
+colorUpper = (100, 255, 255)
 
 #pink highlighter
 # colorLower = (190, 30, 150)
@@ -161,8 +178,12 @@ wait_for_movement = False
 
 #blue sticky color
 
-colorLower = (100, 160, 160)
-colorUpper = (200, 250, 250)
+# colorLower = (100, 160, 160)
+# colorUpper = (200, 250, 250)
+
+# #attempt at finding barbell color
+# colorLower = (0, 1, 240)
+# colorUpper = (360, 4, 254)
 
 
 if not args.get("video", False):
@@ -233,7 +254,13 @@ while True:
             if reps != 0:
                 print("%s   set: %d reps: %d" % (label, sets, reps))
                 output_list.append([label, sets, reps])
+                weight = 200
                 print(Counter(labels))
+                data[d1]["lifts"].append({label :{
+                            'reps': reps ,
+                            'sets': sets,
+                            'weight': weight,
+                }})
             labels = []
             all_ys = []
             wait_for_movement = True
@@ -268,13 +295,13 @@ while True:
         thickness = int(np.sqrt(args["buffer"] / float(i + 1)) * 2.5)
         cv2.line(frame, pts[i - 1], pts[i], (0, 0, 255), thickness)
 
-    # show the frame to our screen
-    humans = e.inference(frame, resize_to_default=(w > 0 and h > 0), upsample_size=args["resize_out_ratio"])
-
-    logger.debug('postprocess+')
-    frame = TfPoseEstimator.draw_humans(frame, humans, imgcopy=False)
-
-    logger.debug('show+')
+    # # show the frame to our screen
+    # humans = e.inference(frame, resize_to_default=(w > 0 and h > 0), upsample_size=args["resize_out_ratio"])
+    #
+    # logger.debug('postprocess+')
+    # frame = TfPoseEstimator.draw_humans(frame, humans, imgcopy=False)
+    #
+    # logger.debug('show+')
     cv2.putText(frame,
                 "FPS: %f" % (1.0 / (time.time() - fps_time)),
                 (10, 10),  cv2.FONT_HERSHEY_SIMPLEX, 0.5,
@@ -286,25 +313,19 @@ while True:
 
     # press q to exit loop
     if key == ord("q"):
-        # if len(all_ys) > 0:
-        #     sets, reps = count_reps(all_ys, sets)
-        #     all_ys = []
-        print(output_list)
-        today = date.today()
-        d1 = today.strftime("%d/%m/%Y")
-        data = {}
-        data[d1] = {}
-        weight = 200
-        lift_data = {"squats" :{
-                    'reps': reps ,
-                    'sets': sets,
-                    'weight': weight,
-        }}
+        # print(output_list)
+        # today = date.today()
+        # d1 = today.strftime("%d/%m/%Y")
+        # # data = {}
+        # # data[d1] = {}
+        # weight = 200
+        # lift_data = {"squats" :{
+        #             'reps': reps ,
+        #             'sets': sets,
+        #             'weight': weight,
+        # }}
+        #
 
-        data[d1] ={
-            'day': today.weekday(),
-            'lifts': lift_data
-        }
         with open("workout_overview/workout_log.json", 'w') as f:
             json.dump(data, f, indent=4)
         break
