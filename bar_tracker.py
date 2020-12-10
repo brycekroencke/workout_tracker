@@ -10,6 +10,7 @@ import pickle
 import json
 import time
 import cv2
+import os
 
 from collections import Counter
 # import logging
@@ -107,45 +108,28 @@ ap.add_argument('--resize-out-ratio', type=float, default=4.0,
                     help='if provided, resize heatmaps before they are post-processed. default=1.0')
 args = vars(ap.parse_args())
 
-# logger = logging.getLogger('TfPoseEstimator-WebCam')
-# logger.setLevel(logging.DEBUG)
-# ch = logging.StreamHandler()
-# ch.setLevel(logging.DEBUG)
-# formatter = logging.Formatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
-# ch.setFormatter(formatter)
-# logger.addHandler(ch)
 fps_time = 0
 today = date.today()
 d1 = today.strftime("%d/%m/%Y")
 data = {}
-with open("workout_overview/workout_log.json") as f:
-    one_char = f.read(1)
-    # if not fetched then file is empty
-    if one_char:
+with open("workout_overview/workout_log.json", 'r+') as f:
+    if os.stat("workout_overview/workout_log.json").st_size == 0:
+        print('File is empty')
+    else:
         data = json.load(f)
 
-#data[d1] = {}
+print(data.keys())
 
 if d1 not in data.keys():
     print("ADDING DATE TO FILE")
-    lift_data = []
-    data[d1] ={
+    lift_data = {}
+    data[d1] = {
         'day': today.weekday(),
         'lifts': lift_data
     }
 else:
     print("APPENDING TO DATE")
-#
-# logger.debug('initialization %s : %s' % (args["model2"], get_graph_path(args["model2"])))
-# w, h = model_wh(args["resize"])
-# if w > 0 and h > 0:
-#     e = TfPoseEstimator(get_graph_path(args["model2"]), target_size=(w, h), trt_bool=str2bool(args["tensorrt"]))
-# else:
-#     e = TfPoseEstimator(get_graph_path(args["model2"]), target_size=(432, 368), trt_bool=str2bool(args["tensorrt"]))
-# logger.debug('cam read+')
-# cam = cv2.VideoCapture(args.camera)
-# ret_val, image = cam.read()
-# logger.info('cam image=%dx%d' % (image.shape[1], image.shape[0]))
+
 
 # load the trained model and label binarizer from disk
 model = load_model(args["model"])
@@ -165,25 +149,19 @@ labels = []
 wait_for_movement = False
 
 # define the lower and upper boundaries of the tracked obj color
-# yellow highlighter
+# (H/2, (S/100) * 255, (V/100) * 255)
+#yellow highlighter
 # colorLower = (24, 100, 100)
 # colorUpper = (44, 255, 255)
-
-colorLower = (20, 100, 125)
-colorUpper = (100, 255, 255)
 
 #pink highlighter
 # colorLower = (190, 30, 150)
 # colorUpper = (255, 110, 250 )
 
-#blue sticky color
+#blue highlighter
+colorLower = np.array([85, 100, 180])
+colorUpper = np.array([110, 230, 255])
 
-# colorLower = (100, 160, 160)
-# colorUpper = (200, 250, 250)
-
-# #attempt at finding barbell color
-# colorLower = (0, 1, 240)
-# colorUpper = (360, 4, 254)
 
 
 if not args.get("video", False):
@@ -225,7 +203,13 @@ while True:
         largest_contour = max(contours, key=cv2.contourArea)
         ((x, y), radius) = cv2.minEnclosingCircle(largest_contour)
         M = cv2.moments(largest_contour)
-        center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+        if M["m00"] != 0:
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+        else:
+            # set values as what you need in the situation
+            cX, cY = 0, 0
+        center = (cX, cY)
 
         # only proceed if the radius meets a minimum size
         if radius > 10:
@@ -248,7 +232,8 @@ while True:
     if is_still(pts_no_nones) and not all(v is None for v in pts) :
         #Object is still
         if wait_for_movement:
-            continue
+            print("waiting")
+
         else:
             sets, reps = count_reps(all_ys, sets)
             if reps != 0:
@@ -256,26 +241,32 @@ while True:
                 output_list.append([label, sets, reps])
                 weight = 200
                 print(Counter(labels))
-                data[d1]["lifts"].append({label :{
+
+                if label in data[d1]["lifts"].keys():
+                    if weight in data[d1]["lifts"][label].keys():
+                        data[d1]["lifts"][label][weight].append({
+                                    'reps': reps ,
+                                    })
+                    else:
+                        data[d1]["lifts"][label][weight] = [{
                             'reps': reps ,
-                            'sets': sets,
-                            'weight': weight,
-                }})
+                        }]
+
+                else:
+                    data[d1]["lifts"][label] = {}
+                    data[d1]["lifts"][label][weight] = [{
+                                'reps': reps,
+                    }]
             labels = []
             all_ys = []
             wait_for_movement = True
     else:
         #Object is moving only predict when obj is moving
+        print("predicting movements")
         output = frame.copy()
         output = cv2.cvtColor(output, cv2.COLOR_BGR2RGB)
         output = cv2.resize(output, (224, 224)).astype("float32")
         output -= mean
-
-        # make predictions on the frame and then update the predictions
-        # queue
-        # e = TfPoseEstimator(get_graph_path("mobilenet_thin"), target_size=(368, 368))
-        # humans = e.inference(output)
-        # frame = TfPoseEstimator.draw_humans(frame, humans, imgcopy=False)
 
 
         preds = model.predict(np.expand_dims(output, axis=0))[0]
@@ -295,12 +286,6 @@ while True:
         thickness = int(np.sqrt(args["buffer"] / float(i + 1)) * 2.5)
         cv2.line(frame, pts[i - 1], pts[i], (0, 0, 255), thickness)
 
-    # # show the frame to our screen
-    # humans = e.inference(frame, resize_to_default=(w > 0 and h > 0), upsample_size=args["resize_out_ratio"])
-    #
-    # logger.debug('postprocess+')
-    # frame = TfPoseEstimator.draw_humans(frame, humans, imgcopy=False)
-    #
     # logger.debug('show+')
     cv2.putText(frame,
                 "FPS: %f" % (1.0 / (time.time() - fps_time)),
@@ -313,19 +298,6 @@ while True:
 
     # press q to exit loop
     if key == ord("q"):
-        # print(output_list)
-        # today = date.today()
-        # d1 = today.strftime("%d/%m/%Y")
-        # # data = {}
-        # # data[d1] = {}
-        # weight = 200
-        # lift_data = {"squats" :{
-        #             'reps': reps ,
-        #             'sets': sets,
-        #             'weight': weight,
-        # }}
-        #
-
         with open("workout_overview/workout_log.json", 'w') as f:
             json.dump(data, f, indent=4)
         break
