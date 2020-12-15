@@ -118,17 +118,14 @@ with open("workout_overview/workout_log.json", 'r+') as f:
     else:
         data = json.load(f)
 
-print(data.keys())
 
+#if date not in json init data
 if d1 not in data.keys():
-    print("ADDING DATE TO FILE")
     lift_data = {}
     data[d1] = {
         'day': today.weekday(),
         'lifts': lift_data
     }
-else:
-    print("APPENDING TO DATE")
 
 
 # load the trained model and label binarizer from disk
@@ -141,11 +138,9 @@ Q = deque(maxlen=args["size"])
 pts = deque(maxlen=args["buffer"])
 
 
-all_ys = []
-output_list = []
+all_ys, output_list, labels = [], [], []
 sets = 0
 label = ""
-labels = []
 wait_for_movement = False
 
 # define the lower and upper boundaries of the tracked obj color
@@ -182,8 +177,7 @@ while True:
     frame = imutils.resize(frame, width=432, height=368)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # construct a mask for the color "green", then perform
-    # a series of dilations and erosions to remove any small
+    # construct a mask for the color and remove any small
     # blobs left in the mask
     mask = cv2.inRange(hsv, colorLower, colorUpper)
     mask = cv2.erode(mask, None, iterations=2)
@@ -231,10 +225,7 @@ while True:
     pts_no_nones = [i for i in pts if i]
     if is_still(pts_no_nones) and not all(v is None for v in pts) :
         #Object is still
-        if wait_for_movement:
-            print("waiting")
-
-        else:
+        if  not wait_for_movement:
             sets, reps = count_reps(all_ys, sets)
             if reps != 0:
                 print("%s   set: %d reps: %d" % (label, sets, reps))
@@ -278,15 +269,14 @@ while True:
         wait_for_movement = False
 
 
-    # loop over the set of tracked points
+    # loop over the set of tracked points and draw connecting lines for tracing
     for i in range(1, len(pts)):
         if pts[i - 1] is None or pts[i] is None:
         	continue
-        # draw connecting lines
         thickness = int(np.sqrt(args["buffer"] / float(i + 1)) * 2.5)
         cv2.line(frame, pts[i - 1], pts[i], (0, 0, 255), thickness)
 
-    # logger.debug('show+')
+    # add fps tracker to frame
     cv2.putText(frame,
                 "FPS: %f" % (1.0 / (time.time() - fps_time)),
                 (10, 10),  cv2.FONT_HERSHEY_SIMPLEX, 0.5,
@@ -296,7 +286,7 @@ while True:
     fps_time = time.time()
     key = cv2.waitKey(1) & 0xFF
 
-    # press q to exit loop
+    # press q to exit loop and update json
     if key == ord("q"):
         with open("workout_overview/workout_log.json", 'w') as f:
             json.dump(data, f, indent=4)
