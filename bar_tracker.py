@@ -19,10 +19,7 @@ import time
 import sys
 import cv2
 import os
-print("*" * 30)
-print("python version: %s" % str(sys.version))
-print("tf version: %s" % str(tf.__version__))
-print("*" * 30)
+
 #workaround to gpu allocation issue
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -38,6 +35,7 @@ if gpus:
         print(e)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
+tf.get_logger().setLevel('ERROR')
 
 """Return all local y mins in list of points"""
 def local_min(ys):
@@ -207,6 +205,7 @@ def predict_frame(frame, mean, labels):
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
 
+
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-v", "--video",
@@ -243,6 +242,7 @@ all_ys, output_list, labels = [], [], []
 sets = {}
 label = ""
 wait_for_movement = True
+first_pred = True
 
 # define the lower and upper boundaries of the tracked obj color
 # (H/2, (S/100) * 255, (V/100) * 255)
@@ -260,11 +260,13 @@ if not args.get("video", False):
 else:
     camera = cv2.VideoCapture(args["video"])
 
-print("\n" * 15)
-print("Workout Tracker has been initalized.")
 
+first_pass = True
 while True:
     (grabbed, frame) = camera.read()
+    if first_pass:
+        label = predict_frame(frame, mean, labels)
+        first_pass = False
     if args.get("video") and not grabbed: #reached end of video
         update(all_ys, label, sets, data, d1, output_list, labels)
         update_json(data)
@@ -332,12 +334,22 @@ while True:
             #Object is moving only predict when obj is moving
             if not args["predict_each_frame"] and vertical_movement(pts_no_nones) and not horizontal_movement(pts_no_nones):
                 label = predict_frame(frame, mean, labels)
-
+                if first_pred:
+                    print("\n" * 50)
+                    print("Logging workout for %s" % (d1))
+                    first_pred = False
             wait_for_movement = False
+
 
 
     if args["predict_each_frame"]:
         label = predict_frame(frame, mean, labels)
+        if first_pred:
+            print("\n" * 50)
+            print("Logging workout for %s" % (d1))
+            first_pred = False
+
+
 
 
     # loop over the set of tracked points and draw connecting lines for tracing

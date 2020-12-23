@@ -2,6 +2,8 @@
 The goal of this project is to create a workout tracker that can sufficiently track weight lifting data without user input.
 The program uses machine learning to classify movements (squats, deadlifts, overhead press, etc..) and uses other computer vision techniques to track the sets and reps performed of each exercise.
 
+![](visual_assets/early_workout_tracker.gif)
+
 # **Running The Code**
 `python bar_tracker.py --model .\model\best  --label-bin .\output\best.pickle  --video .\videos\sample_workout_3.mp4  --size 1`
 

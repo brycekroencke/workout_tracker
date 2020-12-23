@@ -2,8 +2,6 @@
 Trains the classifier model using a custom dataset of images
 Classifies lifting movements for bar_tracker.py
 """
-import matplotlib
-matplotlib.use("Agg")
 
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
@@ -21,15 +19,13 @@ import matplotlib.pyplot as plt
 from imutils import paths
 import tensorflow as tf
 import numpy as np
+import matplotlib
 import argparse
 import pickle
 import cv2
 import os
 
-
-"""
-
-"""
+matplotlib.use("Agg")
 
 lr = 0.0001
 batch_size = 16
@@ -110,12 +106,13 @@ labels = lb.fit_transform(labels)
 # initialize the training data augmentation object
 trainAug = ImageDataGenerator(
 	rotation_range=10,
-	#zoom_range=0.15,
-	# width_shift_range=0.2,
-	# height_shift_range=0.2,
-	# shear_range=0.15,
+	zoom_range=0.15,
+	width_shift_range=0.2,
+	height_shift_range=0.2,
+	shear_range=0.15,
 	horizontal_flip=True,
-	fill_mode="nearest")
+	fill_mode="nearest"
+)
 # initialize the validation/testing data augmentation object (which
 # we'll be adding mean subtraction to)
 valAug = ImageDataGenerator()
