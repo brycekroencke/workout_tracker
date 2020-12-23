@@ -1,3 +1,8 @@
+"""
+Splits a video file into images for training.
+Args: -v path-to-video -l label-to-be-assigned
+"""
+
 import cv2
 import imutils
 import argparse

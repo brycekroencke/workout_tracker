@@ -1,3 +1,7 @@
+"""
+A discord bot for posting users workouts from the json database to a discord channel
+"""
+
 import os
 import discord
 from discord.ext import commands
@@ -14,7 +18,6 @@ import json
 import calendar
 from datetime import date
 from collections import Counter
-
 
 #connect to discord
 load_dotenv()

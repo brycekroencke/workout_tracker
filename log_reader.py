@@ -1,15 +1,17 @@
+"""
+Display workout logs in the terminal
+"""
+
 from collections import Counter
 from datetime import date
 import numpy as np
+import calendar
 import argparse
 import json
 import time
 import os
-import calendar
 
 data = {}
-
-
 with open("workout_overview/workout_log.json") as f:
     if os.stat("workout_overview/workout_log.json").st_size == 0:
         print('File is empty')

@@ -1,21 +1,25 @@
-# set the matplotlib backend so figures can be saved in the background
+"""
+Trains the classifier model using a custom dataset of images
+Classifies lifting movements for bar_tracker.py
+"""
 import matplotlib
 matplotlib.use("Agg")
-# import the necessary packages
+
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.model_selection import train_test_split
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.applications import ResNet50
+from sklearn.metrics import classification_report
+from sklearn.preprocessing import LabelBinarizer
+from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Flatten
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import SGD
-from sklearn.preprocessing import LabelBinarizer
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
-from imutils import paths
 import matplotlib.pyplot as plt
+from imutils import paths
+import tensorflow as tf
 import numpy as np
 import argparse
 import pickle
@@ -23,8 +27,9 @@ import cv2
 import os
 
 
-import tensorflow as tf
+"""
 
+"""
 
 lr = 0.0001
 batch_size = 16

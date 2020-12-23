@@ -1,4 +1,9 @@
-#track the users face position and barbell postion
+"""
+The primary program which tracks the barbell and classifys the users exercise movements using tensorflow
+User can input a videofile or get realtime classification using the webcam
+All recorded data is saved to a json file
+"""
+
 from tensorflow.keras.models import load_model
 from operator import itemgetter
 from collections import deque
@@ -14,6 +19,8 @@ import os
 from collections import Counter
 import tensorflow as tf
 
+
+#workaround to gpu allocation issue
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     # Restrict TensorFlow to only allocate 1GB * 2 of memory on the first GPU
@@ -241,14 +248,8 @@ wait_for_movement = True
 # colorUpper = (44, 255, 255)
 
 #pink highlighter
-#blue highlighter
 colorLower = np.array([170, 130, 140])
 colorUpper = np.array([178, 255, 255])
-
-#blue highlighter
-# colorLower = np.array([85, 110, 135])
-# colorUpper = np.array([100, 230, 255])
-
 
 #if no video is provided use webcam
 if not args.get("video", False):
@@ -256,9 +257,8 @@ if not args.get("video", False):
 else:
     camera = cv2.VideoCapture(args["video"])
 
-
 print("\n" * 15)
-
+print("Workout Tracker has been initalized.")
 
 while True:
     (grabbed, frame) = camera.read()
