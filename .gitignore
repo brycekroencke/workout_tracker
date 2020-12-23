@@ -1,0 +1,7 @@
+data/
+model/
+checkpoint/
+output/
+videos/
+workout_overview/
+custom_dataset/

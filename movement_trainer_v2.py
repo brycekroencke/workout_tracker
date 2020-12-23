@@ -105,10 +105,10 @@ labels = lb.fit_transform(labels)
 # initialize the training data augmentation object
 trainAug = ImageDataGenerator(
 	rotation_range=10,
-	#zoom_range=0.15,
-	# width_shift_range=0.2,
-	# height_shift_range=0.2,
-	# shear_range=0.15,
+	zoom_range=0.15,
+	width_shift_range=0.2,
+	height_shift_range=0.2,
+	shear_range=0.15,
 	horizontal_flip=True,
 	fill_mode="nearest")
 # initialize the validation/testing data augmentation object (which
@@ -139,8 +139,8 @@ headModel = Dense(len(lb.classes_), activation="softmax")(headModel)
 model = Model(inputs=baseModel.input, outputs=headModel)
 # loop over all layers in the base model and freeze them so they will
 # *not* be updated during the training process
-for layer in baseModel.layers:
-    layer.trainable = False
+# for layer in baseModel.layers:
+#     layer.trainable = False
 
 
 
@@ -159,12 +159,22 @@ model.compile(loss="categorical_crossentropy", optimizer=opt,
 # initialized with actual "learned" values versus pure random
 print("[INFO] training head...")
 
+checkpoint_filepath = '/Users/Bryce/Documents/GitHub/workout_tracker/checkpoint'
+model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    filepath=checkpoint_filepath,
+    save_weights_only=
+    False,
+    monitor='val_accuracy',
+    mode='max',
+    save_best_only=False)
+
+
 H = model.fit(
 	x=trainAug.flow(trainX, trainY, batch_size=batch_size),
 	steps_per_epoch=trainX.shape[0] // batch_size,
 	validation_data=valAug.flow(testX, testY),
 	validation_steps=testX.shape[0] // batch_size,
-	epochs=args["epochs"])
+	epochs=args["epochs"], callbacks=[model_checkpoint_callback])
 
 
 # evaluate the network

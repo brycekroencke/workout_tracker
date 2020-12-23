@@ -11,10 +11,23 @@ import json
 import time
 import cv2
 import os
-
 from collections import Counter
-# import logging
+import tensorflow as tf
 
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    # Restrict TensorFlow to only allocate 1GB * 2 of memory on the first GPU
+    try:
+        tf.config.experimental.set_virtual_device_configuration(
+            gpus[0],
+            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024 * 2)])
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        # Virtual devices must be set before GPUs have been initialized
+        print(e)
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 
 """Return all local y mins in list of points"""
 def local_min(ys):
@@ -43,7 +56,7 @@ def all_equal(iterator):
     Uses local mins and maxs to determine number of reps
     Ignores small vertical fluctuations
 """
-def count_reps(arr, set_counter):
+def count_reps(arr):
     rep_counter = 0
     if len(arr) != 0:
         local_mins = local_min(arr)
@@ -64,24 +77,121 @@ def count_reps(arr, set_counter):
                     rep_counter += 1
 
         if rep_counter != 0:
-            set_counter += 1
-            return (set_counter, rep_counter)
+            return rep_counter
         else:
-            return (set_counter, rep_counter)
+            return rep_counter
 
     else:
-        return (set_counter, rep_counter)
+        return rep_counter
+
+def count_sets(label, sets):
+    if label in sets.keys():
+        sets[label] = sets[label] + 1
+    else:
+        sets[label] = 1
+
+    return sets[label]
+
+
 
 """
     Return True if all points in list are close to eachother (close to no movement)
     else return False
 """
-def is_still(arr, stillness_threshold = 5):
+def is_still(arr, stillness_threshold = 3):
     for i in range(len(arr)-1):
         if abs(arr[i][0] - arr[i+1][0]) > stillness_threshold or abs(arr[i][1] - arr[i+1][1]) > stillness_threshold:
             return False
     return True
 
+def horizontal_movement(arr, threshold = 30):
+    net_horizontal_movement = 0
+    for i in range(int((len(arr)-1) / 3)):
+        net_horizontal_movement += arr[i][0] - arr[i+1][0]
+
+    if abs(net_horizontal_movement) > threshold:
+        return True
+    else:
+        return False
+
+def vertical_movement(arr, threshold = 30):
+    net_vertical_movement = 0
+    for i in range(int((len(arr)-1) / 3)):
+        net_vertical_movement += arr[i][1] - arr[i+1][1]
+
+    if abs(net_vertical_movement) > threshold:
+        return True
+    else:
+        return False
+
+def init_workout():
+    today = date.today()
+    d1 = today.strftime("%m/%d/%Y")
+    data = {}
+    with open("workout_overview/workout_log.json", 'r+') as f:
+        if os.stat("workout_overview/workout_log.json").st_size == 0:
+            print('File is empty')
+        else:
+            data = json.load(f)
+
+
+    #if date not in json init data
+    if d1 not in data.keys():
+        lift_data = {}
+        data[d1] = {
+            'day': today.weekday(),
+            'lifts': lift_data
+        }
+    return data, d1
+
+def update(arr, label, sets, data, d1, output_list, labels):
+    reps = count_reps(arr)
+    if reps != 0:
+        counter = Counter(labels)
+        label = counter.most_common(1)[0][0]
+        count_sets(label, sets)
+        print("%s   set: %d reps: %d" % (label, sets[label], reps))
+        output_list.append([label, sets[label], reps])
+        weight = 200
+        if label in data[d1]["lifts"].keys():
+            if weight in data[d1]["lifts"][label].keys():
+                data[d1]["lifts"][label][weight].append({
+                            'reps': reps ,
+                            })
+            else:
+                data[d1]["lifts"][label][weight] = [{
+                    'reps': reps ,
+                }]
+
+        else:
+            data[d1]["lifts"][label] = {}
+            data[d1]["lifts"][label][weight] = [{
+                        'reps': reps,
+            }]
+
+
+
+def update_json(data):
+    with open("workout_overview/workout_log.json", 'w') as f:
+        json.dump(data, f, indent=4)
+
+def predict_frame(frame, mean, labels):
+    output = frame.copy()
+    output = cv2.cvtColor(output, cv2.COLOR_BGR2RGB)
+    output = cv2.resize(output, (224, 224)).astype("float32")
+    output -= mean
+
+
+    preds = model.predict(np.expand_dims(output, axis=0))[0]
+    Q.append(preds)
+    results = np.array(Q).mean(axis=0)
+    i = np.argmax(results)
+    label = lb.classes_[i]
+    labels.append(label)
+    text = "activity: {}".format(label)
+    cv2.putText(frame, text, (10, 55),  cv2.FONT_HERSHEY_SIMPLEX, 1,
+    (0, 255, 0), 2)
+    return label
 
 
 def str2bool(v):
@@ -91,7 +201,7 @@ def str2bool(v):
 ap = argparse.ArgumentParser()
 ap.add_argument("-v", "--video",
 	help="path to the (optional) video file")
-ap.add_argument("-b", "--buffer", type=int, default=30,
+ap.add_argument("-b", "--buffer", type=int, default=80,
 	help="max buffer size")
 ap.add_argument("-m", "--model", required=True,
 	help="path to trained serialized model")
@@ -106,42 +216,23 @@ ap.add_argument('--resize', type=str, default='0x0',
                     help='if provided, resize images before they are processed. default=0x0, Recommends : 432x368 or 656x368 or 1312x736 ')
 ap.add_argument('--resize-out-ratio', type=float, default=4.0,
                     help='if provided, resize heatmaps before they are post-processed. default=1.0')
+ap.add_argument('--predict_each_frame', '-f', type=int, default=0,
+                    help='if 1 predicts the exercise of each frame in video. helpful for debugging.')
 args = vars(ap.parse_args())
 
-fps_time = 0
-today = date.today()
-d1 = today.strftime("%d/%m/%Y")
-data = {}
-with open("workout_overview/workout_log.json", 'r+') as f:
-    if os.stat("workout_overview/workout_log.json").st_size == 0:
-        print('File is empty')
-    else:
-        data = json.load(f)
-
-
-#if date not in json init data
-if d1 not in data.keys():
-    lift_data = {}
-    data[d1] = {
-        'day': today.weekday(),
-        'lifts': lift_data
-    }
-
-
+data, d1 = init_workout()
 # load the trained model and label binarizer from disk
 model = load_model(args["model"])
 lb = pickle.loads(open(args["label_bin"], "rb").read())
 mean = np.array([123.68, 116.779, 103.939][::1], dtype="float32")
 Q = deque(maxlen=args["size"])
-
-
 pts = deque(maxlen=args["buffer"])
 
-
+fps_time = 0
 all_ys, output_list, labels = [], [], []
-sets = 0
+sets = {}
 label = ""
-wait_for_movement = False
+wait_for_movement = True
 
 # define the lower and upper boundaries of the tracked obj color
 # (H/2, (S/100) * 255, (V/100) * 255)
@@ -150,27 +241,30 @@ wait_for_movement = False
 # colorUpper = (44, 255, 255)
 
 #pink highlighter
-# colorLower = (190, 30, 150)
-# colorUpper = (255, 110, 250 )
+#blue highlighter
+colorLower = np.array([170, 130, 140])
+colorUpper = np.array([178, 255, 255])
 
 #blue highlighter
-colorLower = np.array([85, 100, 180])
-colorUpper = np.array([110, 230, 255])
+# colorLower = np.array([85, 110, 135])
+# colorUpper = np.array([100, 230, 255])
 
 
-
+#if no video is provided use webcam
 if not args.get("video", False):
     camera = cv2.VideoCapture(0)
-
-# otherwise, grab a reference to the video file
 else:
     camera = cv2.VideoCapture(args["video"])
 
+
+print("\n" * 15)
+
+
 while True:
     (grabbed, frame) = camera.read()
-
-	#reached end of video
-    if args.get("video") and not grabbed:
+    if args.get("video") and not grabbed: #reached end of video
+        update(all_ys, label, sets, data, d1, output_list, labels)
+        update_json(data)
         break
 
 
@@ -201,14 +295,11 @@ while True:
             cX = int(M["m10"] / M["m00"])
             cY = int(M["m01"] / M["m00"])
         else:
-            # set values as what you need in the situation
             cX, cY = 0, 0
         center = (cX, cY)
 
-        # only proceed if the radius meets a minimum size
+        # draw points if radius is large enough
         if radius > 10:
-        	# draw the circle and centroid on the frame,
-        	# then update the list of tracked points
         	cv2.circle(frame, (int(x), int(y)), int(radius),
         		(0, 255, 255), 2)
         	cv2.circle(frame, center, 5, (0, 0, 255), -1)
@@ -217,56 +308,33 @@ while True:
     pts.appendleft(center)
 
 
-    #keep track of all non None points
-    if pts[0] is not None:
-        all_ys.append(pts[0])
+    #keep track of all non None points and trim off excess horizontal movement
+    if pts[0] is not None and pts[1] is not None:
+        if abs(pts[0][0] - pts[1][0]) < abs(pts[0][1] - pts[1][1]) and abs(pts[0][1] - pts[1][1]) < 3:
+            all_ys.append(pts[0])
 
 
     pts_no_nones = [i for i in pts if i]
-    if is_still(pts_no_nones) and not all(v is None for v in pts) :
-        #Object is still
-        if  not wait_for_movement:
-            sets, reps = count_reps(all_ys, sets)
-            if reps != 0:
-                print("%s   set: %d reps: %d" % (label, sets, reps))
-                output_list.append([label, sets, reps])
-                weight = 200
-                print(Counter(labels))
 
-                if label in data[d1]["lifts"].keys():
-                    if weight in data[d1]["lifts"][label].keys():
-                        data[d1]["lifts"][label][weight].append({
-                                    'reps': reps ,
-                                    })
-                    else:
-                        data[d1]["lifts"][label][weight] = [{
-                            'reps': reps ,
-                        }]
+    if  not all(v is None for v in pts):
 
-                else:
-                    data[d1]["lifts"][label] = {}
-                    data[d1]["lifts"][label][weight] = [{
-                                'reps': reps,
-                    }]
-            labels = []
-            all_ys = []
-            wait_for_movement = True
-    else:
-        #Object is moving only predict when obj is moving
-        print("predicting movements")
-        output = frame.copy()
-        output = cv2.cvtColor(output, cv2.COLOR_BGR2RGB)
-        output = cv2.resize(output, (224, 224)).astype("float32")
-        output -= mean
+        if (is_still(pts_no_nones)):
+            #Object is still
+            if  not wait_for_movement:
+                update(all_ys, label, sets, data, d1, output_list, labels)
+                labels = []
+                all_ys = []
+                wait_for_movement = True
+        else:
+            #Object is moving only predict when obj is moving
+            if not args["predict_each_frame"] and vertical_movement(pts_no_nones) and not horizontal_movement(pts_no_nones):
+                label = predict_frame(frame, mean, labels)
+
+            wait_for_movement = False
 
 
-        preds = model.predict(np.expand_dims(output, axis=0))[0]
-        Q.append(preds)
-        results = np.array(Q).mean(axis=0)
-        i = np.argmax(results)
-        label = lb.classes_[i]
-        labels.append(label)
-        wait_for_movement = False
+    if args["predict_each_frame"]:
+        label = predict_frame(frame, mean, labels)
 
 
     # loop over the set of tracked points and draw connecting lines for tracing
@@ -277,9 +345,10 @@ while True:
         cv2.line(frame, pts[i - 1], pts[i], (0, 0, 255), thickness)
 
     # add fps tracker to frame
+    f = "{:.1f}".format(1.0 / (time.time() - fps_time), 1)
     cv2.putText(frame,
-                "FPS: %f" % (1.0 / (time.time() - fps_time)),
-                (10, 10),  cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                "FPS: %s" % (f),
+                (10, 25),  cv2.FONT_HERSHEY_SIMPLEX, 1,
                 (0, 255, 0), 2)
 
     cv2.imshow("Frame", frame)
@@ -288,8 +357,7 @@ while True:
 
     # press q to exit loop and update json
     if key == ord("q"):
-        with open("workout_overview/workout_log.json", 'w') as f:
-            json.dump(data, f, indent=4)
+        update_json(data)
         break
 
 
