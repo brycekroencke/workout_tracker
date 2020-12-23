@@ -1,23 +1,21 @@
 """
 A discord bot for posting users workouts from the json database to a discord channel
 """
-
-import os
-import discord
 from discord.ext import commands
-import random
-from dotenv import load_dotenv
-import difflib
-import tensorflow as tf
-from transformers import TFGPT2LMHeadModel, GPT2Tokenizer
-import re
-import time
-import sys
-import pyttsx3
-import json
-import calendar
-from datetime import date
 from collections import Counter
+from dotenv import load_dotenv
+from datetime import date
+import tensorflow as tf
+import calendar
+import discord
+import difflib
+import pyttsx3
+import random
+import time
+import json
+import sys
+import os
+import re
 
 #connect to discord
 load_dotenv()

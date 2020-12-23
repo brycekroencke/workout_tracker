@@ -6,8 +6,10 @@ All recorded data is saved to a json file
 
 from tensorflow.keras.models import load_model
 from operator import itemgetter
+from collections import Counter
 from collections import deque
 from datetime import date
+import tensorflow as tf
 import numpy as np
 import argparse
 import imutils
@@ -16,9 +18,6 @@ import json
 import time
 import cv2
 import os
-from collections import Counter
-import tensorflow as tf
-
 
 #workaround to gpu allocation issue
 gpus = tf.config.experimental.list_physical_devices('GPU')
