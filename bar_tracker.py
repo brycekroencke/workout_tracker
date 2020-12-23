@@ -16,9 +16,13 @@ import imutils
 import pickle
 import json
 import time
+import sys
 import cv2
 import os
-
+print("*" * 30)
+print("python version: %s" % str(sys.version))
+print("tf version: %s" % str(tf.__version__))
+print("*" * 30)
 #workaround to gpu allocation issue
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
