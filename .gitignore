@@ -5,3 +5,4 @@ output/
 videos/
 workout_overview/
 custom_dataset/
+.env
