@@ -37,6 +37,9 @@ if gpus:
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 tf.get_logger().setLevel('ERROR')
 
+categories = ["deadlift", "ohp", "squat"]
+
+
 """Return all local y mins in list of points"""
 def local_min(ys):
     return [y[1] for i, y in enumerate(ys)
@@ -194,8 +197,9 @@ def predict_frame(frame, mean, labels):
     Q.append(preds)
     results = np.array(Q).mean(axis=0)
     i = np.argmax(results)
-    label = lb.classes_[i]
+    label = categories[i]
     labels.append(label)
+    # labels.append(label)
     text = "activity: {}".format(label)
     cv2.putText(frame, text, (10, 55),  cv2.FONT_HERSHEY_SIMPLEX, 1,
     (0, 255, 0), 2)
@@ -232,7 +236,7 @@ args = vars(ap.parse_args())
 data, d1 = init_workout()
 # load the trained model and label binarizer from disk
 model = load_model(args["model"])
-lb = pickle.loads(open(args["label_bin"], "rb").read())
+# lb = pickle.loads(open(args["label_bin"], "rb").read())
 mean = np.array([123.68, 116.779, 103.939][::1], dtype="float32")
 Q = deque(maxlen=args["size"])
 pts = deque(maxlen=args["buffer"])
@@ -335,7 +339,8 @@ while True:
             if not args["predict_each_frame"] and vertical_movement(pts_no_nones) and not horizontal_movement(pts_no_nones):
                 label = predict_frame(frame, mean, labels)
                 if first_pred:
-                    print("\n" * 50)
+                    for i in range(50):
+                        print("\n")
                     print("Logging workout for %s" % (d1))
                     first_pred = False
             wait_for_movement = False
@@ -345,7 +350,8 @@ while True:
     if args["predict_each_frame"]:
         label = predict_frame(frame, mean, labels)
         if first_pred:
-            print("\n" * 50)
+            for i in range(50):
+                print("\n")
             print("Logging workout for %s" % (d1))
             first_pred = False
 
