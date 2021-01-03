@@ -6,3 +6,10 @@ videos/
 workout_overview/
 custom_dataset/
 .env
+data.h5
+plot.png
+plot_ft.png
+weight_detection.py
+test.py
+label_list.csv
+video_to_train_arrs.py
