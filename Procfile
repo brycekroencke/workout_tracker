@@ -1,0 +1,1 @@
+web: gunicorn workout-tracker-server:app
