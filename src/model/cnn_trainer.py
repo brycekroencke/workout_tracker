@@ -14,7 +14,7 @@ from tensorflow.keras.utils import Sequence
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Flatten
-from keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
@@ -45,8 +45,6 @@ ap.add_argument("-d", "--dataset", required=True,
     help="path to input dataset")
 ap.add_argument("-m", "--model", required=True,
     help="path to output serialized model")
-ap.add_argument("-l", "--label-bin", required=True,
-    help="path to output label binarizer")
 ap.add_argument("-e", "--epochs", type=int, default=25,
     help="# of epochs to train our network for")
 ap.add_argument("-p", "--plot", type=str, default="plot.png",
@@ -87,51 +85,18 @@ validation_generator = train_datagen.flow_from_directory(
     subset='validation'
 ) # set as validation data
 
-# test_datagen = ImageDataGenerator(rescale=1./255)
-#
-# test_generator = test_datagen.flow_from_directory(
-#     train_data_dir,
-#     target_size=(img_height, img_width),
-#     color_mode="rgb",
-#     shuffle = False,
-#     class_mode='categorical',
-#     subset='test',
-#     batch_size=1)
-
-# load the ResNet-50 network, ensuring the head FC layer sets are left
-# off
-# plt.style.use("ggplot")
-# for i in range(len(train_generator)):
-#     batch = train_generator[i]
-#
-#     x, y = batch
-#
-#
-#
-#     print('images in batch:', len(x))
-#
-#     for image in x:
-#         print(image)
-#         imgplot = plt.imshow((image).astype(np.uint8))
-#         plt.show()
-
-baseModel = ResNet50(weights="imagenet", include_top=False,
+base_model = ResNet50(weights="imagenet", include_top=False,
 	input_tensor=Input(shape=(224, 224, 3)))
-# construct the head of the model that will be placed on top of the
-# the base model
-headModel = baseModel.output
-headModel = AveragePooling2D(pool_size=(7, 7))(headModel)
-headModel = Flatten(name="flatten")(headModel)
-headModel = Dense(512, activation="relu")(headModel)
-headModel = Dense(512, activation="relu")(headModel)
-headModel = Dropout(0.5)(headModel)
-headModel = Dense(len(categories), activation="softmax")(headModel)
-# place the head FC model on top of the base model (this will become
-# the actual model we will train)
-model = Model(inputs=baseModel.input, outputs=headModel)
-# loop over all layers in the base model and freeze them so they will
-# *not* be updated during the training process
-for layer in baseModel.layers:
+head_model = base_model.output
+head_model = AveragePooling2D(pool_size=(7, 7))(head_model)
+head_model = Flatten(name="flatten")(head_model)
+head_model = Dense(512, activation="relu")(head_model)
+head_model = Dense(512, activation="relu")(head_model)
+head_model = Dropout(0.5)(head_model)
+head_model = Dense(len(categories), activation="softmax")(head_model)
+model = Model(inputs=base_model.input, outputs=head_model)
+model.summary()
+for layer in base_model.layers:
     layer.trainable = False
 
 
@@ -165,33 +130,7 @@ print("early stopping finished at epoch: %s" % str(epochs_prior_to_finetune))
 print("[INFO] serializing network...")
 model.save(args["model"], save_format="h5")
 
-#
-# for layer in baseModel.layers:
-#     layer.trainable = True
-#
-# filenames = test_generator.filenames
-# nb_samples = len(filenames)
-#
-# test_labels=test_generator.classes
-# predictions = model.predict_generator(test_generator,steps = nb_samples)
-# y_pred = np.argmax(predictions, axis=-1)
-# # print(classification_report(test_labels, y_pred))
-#
-#
-#
-# n_batches = len(test_generator)
-#
-# confusion_matrix(
-#     np.concatenate([np.argmax(test_generator[i][1], axis=1) for i in range(n_batches)]),
-#     np.argmax(model.predict_generator(test_generator, steps=batch_size), axis=1)
-# )
-#
-# #
-# # evaluate the network
-# print("[INFO] evaluating network...")
-# predictions = model.predict(x=testX.astype("float32"), batch_size=batch_size)
-# print(classification_report(testY.argmax(axis=1),
-# 	predictions.argmax(axis=1), target_names=categories))
+
 
 acc = history.history['accuracy']
 val_acc = history.history['val_accuracy']
@@ -220,13 +159,10 @@ plt.savefig('plot.png')
 # plt.show()
 
 
-baseModel.trainable = True
-# Let's take a look to see how many layers are in the base model
-print("Number of layers in the base model: ", len(baseModel.layers))
-# Fine-tune from this layer onwards
+print("[INFO] fine tuning model...")
+base_model.trainable = True
 fine_tune_at = 100
-# Freeze all the layers before the `fine_tune_at` layer
-for layer in baseModel.layers[:fine_tune_at]:
+for layer in base_model.layers[:fine_tune_at]:
   layer.trainable =  False
 
 
@@ -285,9 +221,3 @@ plt.legend(loc='upper right')
 plt.title('Training and Validation Loss')
 plt.xlabel('epoch')
 plt.savefig('plot_ft.png')
-# plt.show()
-
-# serialize the label binarizer to disk
-# f = open(args["label_bin"], "wb")
-# f.write(pickle.dumps(lb))
-# f.close()
