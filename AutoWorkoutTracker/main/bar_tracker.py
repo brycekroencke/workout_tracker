@@ -23,8 +23,8 @@ import cv2
 import os
 
 sys.path.insert(1, '../..')
-from src.utils.workout_tracker_functions import *
-from src.utils.hyperparameters import get_hyperparam_obj
+from AutoWorkoutTracker.utils.workout_tracker_functions import *
+from AutoWorkoutTracker.utils.hyperparameters import get_hyperparam_obj
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 tf.get_logger().setLevel('ERROR')
 
@@ -190,6 +190,7 @@ def process_video(video):
         if key == ord("q"):
             update_json(data)
             break
+    return data
 
 process_video(camera)
 

@@ -28,9 +28,9 @@ if gpus:
 
 
 sys.path.insert(1, '../..')
-from src.utils.visualizer import visualize_generator
-from src.utils.hyperparameters import get_hyperparam_obj, update_hyperparams
-from src.generator.custom_generator import time_series_generator
+from AutoWorkoutTracker.utils.visualizer import visualize_generator
+from AutoWorkoutTracker.utils.hyperparameters import get_hyperparam_obj, update_hyperparams
+from AutoWorkoutTracker.generator.custom_generator import time_series_generator
 
 hyperparams = {
     "num_epochs": 20,

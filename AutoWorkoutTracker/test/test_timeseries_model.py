@@ -4,8 +4,8 @@ from tensorflow.keras.models import load_model
 import sys
 
 sys.path.insert(1, '../..')
-from src.generator.custom_generator import time_series_generator
-from src.utils.hyperparameters import get_hyperparam_obj
+from AutoWorkoutTracker.generator.custom_generator import time_series_generator
+from AutoWorkoutTracker.utils.hyperparameters import get_hyperparam_obj
 
 
 train_dir = '/Users/Bryce/Documents/GitHub/workout_tracker_data/train'
