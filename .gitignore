@@ -7,3 +7,4 @@ workout_overview/
 custom_dataset/
 .env
 wandb/
+__pycache__

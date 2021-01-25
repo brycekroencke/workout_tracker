@@ -100,6 +100,9 @@ for layer in base_model.layers:
     layer.trainable = False
 
 
+x,y = train_generator.next()
+print(x[0])
+
 # compile our model (this needs to be done after our setting our
 # layers to being non-trainable)
 print("[INFO] compiling model...")

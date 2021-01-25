@@ -161,3 +161,57 @@ def add_label_and_fps(frame, fps_time, label):
     cv2.putText(frame, label_text, (10, 55),  cv2.FONT_HERSHEY_SIMPLEX, 1,
                 (0, 255, 0), 2)
     return frame
+
+
+def append_to_frame_buffer(frame_buffer, frame, config):
+    frame_buffer = deque(frame_buffer)
+    output = frame.copy()
+    output = cv2.cvtColor(output, cv2.COLOR_BGR2RGB)
+    output = cv2.resize(
+        output, (config.width, config.height)).astype("float32")
+    # output /= 255.
+    frame_buffer.appendleft(output)
+    if len(frame_buffer) > config.seq_len:
+        frame_buffer.pop()
+    frame_buffer = np.array(frame_buffer)
+    return frame_buffer
+
+def track_point(frame, config, pts):
+    # define the lower and upper boundaries of the tracked obj color
+    # (H/2, (S/100) * 255, (V/100) * 255)
+    # pink highlighter
+    colorLower = np.array([170, 130, 140])
+    colorUpper = np.array([178, 255, 255])
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    # construct a mask for the color and remove any small
+    # blobs left in the mask
+    mask = cv2.inRange(hsv, colorLower, colorUpper)
+    mask = cv2.erode(mask, None, iterations=2)
+    mask = cv2.dilate(mask, None, iterations=2)
+    # find contours in the mask and initialize the current
+    # (x, y) center of the barbell
+    contours = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
+                                cv2.CHAIN_APPROX_SIMPLE)[-2]
+    center = None
+    # only proceed if at least one contour was found
+    if len(contours) > 0:
+        # find the largest contour in the mask, then use
+        # it to compute the minimum enclosing circle and
+        # centroid
+        largest_contour = max(contours, key=cv2.contourArea)
+        ((x, y), radius) = cv2.minEnclosingCircle(largest_contour)
+        M = cv2.moments(largest_contour)
+        if M["m00"] != 0:
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+        else:
+            cX, cY = 0, 0
+        center = (cX, cY)
+        # draw points if radius is large enough
+        if radius > 10:
+            cv2.circle(frame, (int(x), int(y)), int(radius),
+                       (0, 255, 255), 2)
+            cv2.circle(frame, center, 5, (0, 0, 255), -1)
+        # update the points queue
+    pts.appendleft(center)
+    return pts
